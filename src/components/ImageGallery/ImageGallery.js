@@ -1,10 +1,12 @@
 import React, { Component } from 'react';
-// import PropTypes from 'prop-types';
+import PropTypes from 'prop-types';
 import Loader from 'react-loader-spinner';
 import ImageGalleryItem from '../ImageGalleryItem';
 import Container from '../Container';
 import Button from '../Button';
 import s from './ImageGallery.module.css';
+import pixabayAPI from '../../services/pixabayAPI';
+import Modal from '../Modal';
 
 class ImageGallery extends Component {
   state = {
@@ -12,29 +14,25 @@ class ImageGallery extends Component {
     error: null,
     status: 'idle',
     page: 1,
+    showModal: false,
+    originalImage: null,
+    alt: null,
+  };
+
+  static propTypes = {
+    searchImage: PropTypes.string,
   };
 
   componentDidUpdate(prevProps, prevState) {
     const prevName = prevProps.searchImage;
     const nextName = this.props.searchImage;
-    const { page } = this.state;
+    let { page } = this.state;
 
     if (prevName !== nextName) {
-      console.log('Изменилось значения запроса');
+      page = 1;
 
       this.setState({ status: 'pending' });
-      fetch(
-        `https://pixabay.com/api/?q=${nextName}&page=${page}&key=19197868-48df692c0a14d7fda4172233f&image_type=photo&orientation=horizontal&per_page=12`,
-      )
-        .then(response => {
-          if (response.ok) {
-            return response.json();
-          }
-
-          return Promise.reject(
-            new Error(`No results were found for "${nextName}"`),
-          );
-        })
+      pixabayAPI(nextName, page)
         .then(imagess =>
           this.setState({
             images: imagess.hits,
@@ -47,19 +45,11 @@ class ImageGallery extends Component {
   }
 
   updateImageGallery = () => {
-    this.setState({ status: 'pending' });
-    fetch(
-      `https://pixabay.com/api/?q=${this.props.searchImage}&page=${this.state.page}&key=19197868-48df692c0a14d7fda4172233f&image_type=photo&orientation=horizontal&per_page=12`,
-    )
-      .then(response => {
-        if (response.ok) {
-          return response.json();
-        }
+    const { searchImage } = this.props;
+    const { page } = this.state;
 
-        return Promise.reject(
-          new Error(`No results were found for "${this.props.searchImage}"`),
-        );
-      })
+    this.setState({ status: 'pending' });
+    pixabayAPI(searchImage, page)
       .then(imagess =>
         this.setState(
           prevState => ({
@@ -80,8 +70,20 @@ class ImageGallery extends Component {
     });
   };
 
+  openModal = e => {
+    this.setState(({ showModal }) => ({
+      showModal: !showModal,
+      originalImage: e.target.dataset.set,
+      alt: e.target.alt,
+    }));
+  };
+
+  closeModal = () => {
+    this.setState(({ showModal }) => ({ showModal: !showModal }));
+  };
+
   render() {
-    const { images, error, status } = this.state;
+    const { images, error, status, originalImage, alt, showModal } = this.state;
 
     if (status === 'idle') {
       return <></>;
@@ -98,6 +100,7 @@ class ImageGallery extends Component {
                     src={image.webformatURL}
                     alt={image.tags}
                     dataset={image.largeImageURL}
+                    size="preview"
                   />
                 </li>
               );
@@ -127,11 +130,12 @@ class ImageGallery extends Component {
           <ul className={s.ImageGallery}>
             {images.map(image => {
               return (
-                <li key={image.id}>
+                <li key={image.id} onClick={this.openModal} className={s.item}>
                   <ImageGalleryItem
                     src={image.webformatURL}
                     alt={image.tags}
                     dataset={image.largeImageURL}
+                    size="preview"
                   />
                 </li>
               );
@@ -146,14 +150,15 @@ class ImageGallery extends Component {
               listener={() => this.updateImageGallery()}
             />
           </Container>
+          {showModal && (
+            <Modal onClose={this.closeModal}>
+              <ImageGalleryItem src={originalImage} alt={alt} size="original" />
+            </Modal>
+          )}
         </>
       );
     }
   }
 }
-
-// ImageGallery.propTypes = {
-//   children: PropTypes.object,
-// };
 
 export default ImageGallery;
