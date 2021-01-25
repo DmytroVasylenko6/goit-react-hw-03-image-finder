@@ -11,19 +11,20 @@ class ImageGallery extends Component {
     images: null,
     error: null,
     status: 'idle',
+    page: 1,
   };
 
   componentDidUpdate(prevProps, prevState) {
     const prevName = prevProps.searchImage;
     const nextName = this.props.searchImage;
-    console.log(this.state.images);
+    const { page } = this.state;
 
     if (prevName !== nextName) {
       console.log('Изменилось значения запроса');
 
-      this.setState({ loading: true, status: 'pending' });
+      this.setState({ status: 'pending' });
       fetch(
-        `https://pixabay.com/api/?q=${nextName}&page=1&key=19197868-48df692c0a14d7fda4172233f&image_type=photo&orientation=horizontal&per_page=12`,
+        `https://pixabay.com/api/?q=${nextName}&page=${page}&key=19197868-48df692c0a14d7fda4172233f&image_type=photo&orientation=horizontal&per_page=12`,
       )
         .then(response => {
           if (response.ok) {
@@ -34,20 +35,81 @@ class ImageGallery extends Component {
             new Error(`No results were found for "${nextName}"`),
           );
         })
-        .then(images => this.setState({ images, status: 'resolved' }))
+        .then(imagess =>
+          this.setState({
+            images: imagess.hits,
+            status: 'resolved',
+            page: prevState.page + 1,
+          }),
+        )
         .catch(error => this.setState({ error, status: 'rejected' }));
     }
   }
 
+  updateImageGallery = () => {
+    this.setState({ status: 'pending' });
+    fetch(
+      `https://pixabay.com/api/?q=${this.props.searchImage}&page=${this.state.page}&key=19197868-48df692c0a14d7fda4172233f&image_type=photo&orientation=horizontal&per_page=12`,
+    )
+      .then(response => {
+        if (response.ok) {
+          return response.json();
+        }
+
+        return Promise.reject(
+          new Error(`No results were found for "${this.props.searchImage}"`),
+        );
+      })
+      .then(imagess =>
+        this.setState(
+          prevState => ({
+            images: [...prevState.images, ...imagess.hits],
+            status: 'resolved',
+            page: prevState.page + 1,
+          }),
+          this.scroll,
+        ),
+      )
+      .catch(error => this.setState({ error, status: 'rejected' }));
+  };
+
+  scroll = () => {
+    window.scrollTo({
+      top: document.documentElement.scrollHeight,
+      behavior: 'smooth',
+    });
+  };
+
   render() {
     const { images, error, status } = this.state;
-    console.log(images);
 
     if (status === 'idle') {
       return <></>;
     }
 
-    if (status === 'pending') {
+    if (status === 'pending' && images !== null) {
+      return (
+        <>
+          <ul className={s.ImageGallery}>
+            {images.map(image => {
+              return (
+                <li key={image.id}>
+                  <ImageGalleryItem
+                    src={image.webformatURL}
+                    alt={image.tags}
+                    dataset={image.largeImageURL}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+
+          <Container>
+            <Loader type="ThreeDots" color="#ca347f" height={80} width={80} />
+          </Container>
+        </>
+      );
+    } else if (status === 'pending') {
       return (
         <Container>
           <Loader type="ThreeDots" color="#ca347f" height={80} width={80} />
@@ -63,7 +125,7 @@ class ImageGallery extends Component {
       return (
         <>
           <ul className={s.ImageGallery}>
-            {images.hits.map(image => {
+            {images.map(image => {
               return (
                 <li key={image.id}>
                   <ImageGalleryItem
@@ -77,25 +139,16 @@ class ImageGallery extends Component {
           </ul>
 
           <Container>
-            <Button type="button" text="load more" styles="load" />
+            <Button
+              type="button"
+              text="load more"
+              styles="load"
+              listener={() => this.updateImageGallery()}
+            />
           </Container>
         </>
       );
     }
-    // return <>
-    //   {error && <h1>{error.message}</h1>}
-    //   <ul className={s.ImageGallery}>
-    //   {images && images.hits.map(image => {
-    //     return <li key={image.id}>
-    //       <ImageGalleryItem src={image.webformatURL} alt={image.tags} dataset={image.largeImageURL}/>
-    //     </li>
-    //   })}
-    //   </ul>
-    //   <Container>
-    //       {images && !loading && <Button type="button" text="load more" styles="load" />}
-    //       {loading && <Loader type="ThreeDots" color="#ca347f" height={80} width={80} />}
-    //   </Container>
-    // </>
   }
 }
 
