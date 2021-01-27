@@ -1,6 +1,8 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import Loader from 'react-loader-spinner';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import ImageGalleryItem from '../ImageGalleryItem';
 import Container from '../Container';
 import Button from '../Button';
@@ -10,7 +12,7 @@ import Modal from '../Modal';
 
 class ImageGallery extends Component {
   state = {
-    images: null,
+    images: [],
     error: null,
     status: 'idle',
     page: 1,
@@ -26,21 +28,11 @@ class ImageGallery extends Component {
   componentDidUpdate(prevProps, prevState) {
     const prevName = prevProps.searchImage;
     const nextName = this.props.searchImage;
-    let { page } = this.state;
 
     if (prevName !== nextName) {
-      page = 1;
-
-      this.setState({ status: 'pending' });
-      pixabayAPI(nextName, page)
-        .then(imagess =>
-          this.setState({
-            images: imagess.hits,
-            status: 'resolved',
-            page: prevState.page + 1,
-          }),
-        )
-        .catch(error => this.setState({ error, status: 'rejected' }));
+      const page = 1;
+      this.setState({ status: 'pending', page: 1 });
+      this.setImages(nextName, page);
     }
   }
 
@@ -49,18 +41,7 @@ class ImageGallery extends Component {
     const { page } = this.state;
 
     this.setState({ status: 'pending' });
-    pixabayAPI(searchImage, page)
-      .then(imagess =>
-        this.setState(
-          prevState => ({
-            images: [...prevState.images, ...imagess.hits],
-            status: 'resolved',
-            page: prevState.page + 1,
-          }),
-          this.scroll,
-        ),
-      )
-      .catch(error => this.setState({ error, status: 'rejected' }));
+    this.setImages(searchImage, page);
   };
 
   scroll = () => {
@@ -82,31 +63,60 @@ class ImageGallery extends Component {
     this.setState(({ showModal }) => ({ showModal: !showModal }));
   };
 
+  setImages(searchValue, pageNumber) {
+    pixabayAPI(searchValue, pageNumber)
+      .then(imagess => {
+        console.log(this.state.page);
+        if (imagess.hits.length === 0) {
+          toast('No results were found for the given request!');
+        }
+        if (this.state.page === 1) {
+          this.setState(prevState => ({
+            images: imagess.hits,
+            status: 'resolved',
+            page: prevState.page + 1,
+          }));
+        } else {
+          this.setState(
+            prevState => ({
+              images: [...prevState.images, ...imagess.hits],
+              status: 'resolved',
+              page: prevState.page + 1,
+            }),
+            this.scroll,
+          );
+        }
+      })
+      .catch(error => this.setState({ error, status: 'rejected' }));
+  }
+
   render() {
     const { images, error, status, originalImage, alt, showModal } = this.state;
+    const ImagesGallery = (
+      <ul className={s.ImageGallery}>
+        {images.map(image => {
+          return (
+            <li key={image.id} onClick={this.openModal}>
+              <ImageGalleryItem
+                src={image.webformatURL}
+                alt={image.tags}
+                dataset={image.largeImageURL}
+                size="preview"
+              />
+            </li>
+          );
+        })}
+      </ul>
+    );
 
     if (status === 'idle') {
       return <></>;
     }
 
-    if (status === 'pending' && images !== null) {
+    if (status === 'pending' && images.length !== 0) {
       return (
         <>
-          <ul className={s.ImageGallery}>
-            {images.map(image => {
-              return (
-                <li key={image.id}>
-                  <ImageGalleryItem
-                    src={image.webformatURL}
-                    alt={image.tags}
-                    dataset={image.largeImageURL}
-                    size="preview"
-                  />
-                </li>
-              );
-            })}
-          </ul>
-
+          {ImagesGallery}
           <Container>
             <Loader type="ThreeDots" color="#ca347f" height={80} width={80} />
           </Container>
@@ -127,29 +137,18 @@ class ImageGallery extends Component {
     if (status === 'resolved') {
       return (
         <>
-          <ul className={s.ImageGallery}>
-            {images.map(image => {
-              return (
-                <li key={image.id} onClick={this.openModal} className={s.item}>
-                  <ImageGalleryItem
-                    src={image.webformatURL}
-                    alt={image.tags}
-                    dataset={image.largeImageURL}
-                    size="preview"
-                  />
-                </li>
-              );
-            })}
-          </ul>
+          {ImagesGallery}
 
-          <Container>
-            <Button
-              type="button"
-              text="load more"
-              styles="load"
-              listener={() => this.updateImageGallery()}
-            />
-          </Container>
+          {images.length > 0 && (
+            <Container>
+              <Button
+                type="button"
+                text="load more"
+                styles="load"
+                listener={() => this.updateImageGallery()}
+              />
+            </Container>
+          )}
           {showModal && (
             <Modal onClose={this.closeModal}>
               <ImageGalleryItem src={originalImage} alt={alt} size="original" />
