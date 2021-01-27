@@ -31,7 +31,7 @@ class ImageGallery extends Component {
 
     if (prevName !== nextName) {
       const page = 1;
-      this.setState({ status: 'pending', page: 1 });
+      this.setState({ status: 'pending', page: 1, images: [] });
       this.setImages(nextName, page);
     }
   }
@@ -66,26 +66,18 @@ class ImageGallery extends Component {
   setImages(searchValue, pageNumber) {
     pixabayAPI(searchValue, pageNumber)
       .then(imagess => {
-        console.log(this.state.page);
         if (imagess.hits.length === 0) {
           toast('No results were found for the given request!');
         }
-        if (this.state.page === 1) {
-          this.setState(prevState => ({
-            images: imagess.hits,
+
+        this.setState(
+          prevState => ({
+            images: [...prevState.images, ...imagess.hits],
             status: 'resolved',
             page: prevState.page + 1,
-          }));
-        } else {
-          this.setState(
-            prevState => ({
-              images: [...prevState.images, ...imagess.hits],
-              status: 'resolved',
-              page: prevState.page + 1,
-            }),
-            this.scroll,
-          );
-        }
+          }),
+          this.scroll,
+        );
       })
       .catch(error => this.setState({ error, status: 'rejected' }));
   }
