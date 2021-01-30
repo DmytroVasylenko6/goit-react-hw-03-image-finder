@@ -3,10 +3,10 @@ import PropTypes from 'prop-types';
 import Loader from 'react-loader-spinner';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import GalleryContainer from '../GalleryContainer';
 import ImageGalleryItem from '../ImageGalleryItem';
 import Container from '../Container';
 import Button from '../Button';
-import s from './ImageGallery.module.css';
 import pixabayAPI from '../../services/pixabayAPI';
 import Modal from '../Modal';
 
@@ -84,71 +84,38 @@ class ImageGallery extends Component {
 
   render() {
     const { images, error, status, originalImage, alt, showModal } = this.state;
-    const ImagesGallery = (
-      <ul className={s.ImageGallery}>
-        {images.map(image => {
-          return (
-            <li key={image.id} onClick={this.openModal}>
-              <ImageGalleryItem
-                src={image.webformatURL}
-                alt={image.tags}
-                dataset={image.largeImageURL}
-                size="preview"
-              />
-            </li>
-          );
-        })}
-      </ul>
-    );
 
-    if (status === 'idle') {
-      return <></>;
-    }
-
-    if (status === 'pending' && images.length !== 0) {
-      return (
-        <>
-          {ImagesGallery}
+    return (
+      <>
+        {images.length > 0 && (
+          <GalleryContainer images={images} listener={this.openModal} />
+        )}
+        {status === 'pending' && (
           <Container>
             <Loader type="ThreeDots" color="#ca347f" height={80} width={80} />
           </Container>
-        </>
-      );
-    } else if (status === 'pending') {
-      return (
-        <Container>
-          <Loader type="ThreeDots" color="#ca347f" height={80} width={80} />
-        </Container>
-      );
-    }
+        )}
 
-    if (status === 'rejected') {
-      return <h1>{error.message}</h1>;
-    }
+        {images.length > 0 && status !== 'pending' && (
+          <Container>
+            <Button
+              type="button"
+              text="load more"
+              styles="load"
+              listener={() => this.updateImageGallery()}
+            />
+          </Container>
+        )}
 
-    if (status === 'resolved') {
-      return (
-        <>
-          {ImagesGallery}
+        {status === 'rejected' && toast(error.message)}
 
-          {images.length > 0 && (
-            <Container>
-              <Button
-                type="button"
-                text="load more"
-                styles="load"
-                listener={() => this.updateImageGallery()}
-              />
-            </Container>
-          )}
-          {showModal && (
-            <Modal onClose={this.closeModal}>
-              <ImageGalleryItem src={originalImage} alt={alt} size="original" />
-            </Modal>
-          )}
-        </>
-      );
-    }
+        {showModal && (
+          <Modal onClose={this.closeModal}>
+            <ImageGalleryItem src={originalImage} alt={alt} size="original" />
+          </Modal>
+        )}
+      </>
+    );
   }
 }
 
